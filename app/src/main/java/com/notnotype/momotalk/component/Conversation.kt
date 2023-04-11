@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
@@ -26,34 +27,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.notnotype.momotalk.model.*
 import com.notnotype.momotalk.ui.theme.MomotalkTheme
 
-
-data class User(val username: String, val nickname: String, val uid: String, val avatar: String) {}
-
-data class MessageGroup(val user: User, val messages: List<Message>) {}
-
-data class Message(val text: String) {}
-
-fun getDefaultMessages(): List<Message> {
-    return listOf(
-        Message("Hello, World"),
-        Message("Make the world better."),
-        Message("Can can need."),
-        Message("qpweoirhjnkasdbnfzxcloiyhjosdfjkesja;ladksjfkljasdokfhjl;kasjd;lfj中文输入从屙屎")
-    )
-}
-
-fun getDefaultUser(): User {
-    return User("Notnotype", "notype", "114514", "https://www.sdfsdf.dev/100x100.png")
-}
-
-fun getDefaultMessageGroup(): MessageGroup {
-    return MessageGroup(
-        user = getDefaultUser(),
-        messages = getDefaultMessages(),
-    )
-}
 
 enum class ClickableBubbleSender {
     Left, Right
@@ -62,82 +38,89 @@ enum class ClickableBubbleSender {
 @Composable
 fun UserAndMessage(
     user: User,
-    sender: ClickableBubbleSender,
     withAvatar: Boolean,
     message: Message,
     withTriangle: Boolean
 ) {
-
-    val backgroundBubbleColor = when (sender) {
-        ClickableBubbleSender.Left -> MaterialTheme.colorScheme.primary
-        ClickableBubbleSender.Right -> MaterialTheme.colorScheme.surfaceVariant
-    }
-
-    Row() {
-        if (withAvatar) {
-            AsyncImage(
-                model = user.avatar,
-                modifier = Modifier
+    Row {
+        if (!isMe(user)) {
+            if (withAvatar) {
+                AsyncImage(
+                    model = user.avatar,
+                    modifier = Modifier
 //                .clickable(onClick = { onAuthorClick(msg.author) })
-                    .padding(end = 8.dp)
-                    .size(60.dp)
-                    .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                    .border(3.dp, MaterialTheme.colorScheme.surface, CircleShape)
-                    .clip(CircleShape)
-                    .align(Alignment.Top),
-                contentScale = ContentScale.Crop,
-                contentDescription = null,
-            )
-        } else {
-            Spacer(modifier = Modifier.width(68.dp))
+                        .padding(end = 8.dp)
+                        .size(60.dp)
+                        .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                        .border(3.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                        .clip(CircleShape)
+                        .align(Alignment.Top),
+                    contentScale = ContentScale.Crop,
+                    contentDescription = null,
+                )
+            } else {
+                Spacer(modifier = Modifier.width(avatarWidth))
+            }
+        }
+        MessageBubble(user, withAvatar, message, withTriangle)
+    }
+}
+
+@Composable
+fun MessageBubble(
+    user: User,
+    withAvatar: Boolean,
+    message: Message,
+    withTriangle: Boolean
+) {
+    val backgroundBubbleColor = if (isMe(user))
+        MaterialTheme.colorScheme.primary else
+        MaterialTheme.colorScheme.surfaceVariant
+
+    val pxValue = with(LocalDensity.current) { 22.dp.toPx() } / 2
+
+    Column(horizontalAlignment = if (isMe(user)) Alignment.End else Alignment.Start) {
+        if (withAvatar) {
+            Row(modifier = Modifier
+                .padding(start = triangleSize, top = 2.dp, bottom = 2.dp, end = triangleSize)
+                .semantics(mergeDescendants = true) {}) {
+                Text(
+                    text = user.nickname,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.alignBy(LastBaseline)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "20:18",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.alignBy(LastBaseline),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
-        val pxValue = with(LocalDensity.current) { 25.dp.toPx() } / 2
-
-        Column {
-            if (withAvatar) {
-                Row(modifier = Modifier
-                    .padding(start = triangleSize, top = 2.dp, bottom = 2.dp)
-                    .semantics(mergeDescendants = true) {}
-                ) {
-                    Text(
-
-                        text = user.nickname,
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier
-                            .alignBy(LastBaseline)
-//                            .paddingFrom(LastBaseline, after = 8.dp) // Space to 1st bubble
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "msg.timestamp",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.alignBy(LastBaseline),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+        Row(Modifier.height(IntrinsicSize.Max)) {
+            if (withTriangle && !isMe(user)) {
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color = backgroundBubbleColor, shape = TriangleEdgeShape(true, pxValue)
+                        )
+                        .width(triangleSize)
+                        .fillMaxHeight()
+                ) {}
+            } else {
+                Spacer(modifier = Modifier.width(if (!isMe(user)) triangleSize else triangleSize + avatarWidth))
             }
 
-            Row(Modifier.height(IntrinsicSize.Max)) {
-                if (withTriangle && sender == ClickableBubbleSender.Left) {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = backgroundBubbleColor,
-                                shape = TriangleEdgeShape(true, pxValue)
-                            )
-                            .width(triangleSize)
-                            .fillMaxHeight()
-                    ) {}
-                } else {
-                    Spacer(modifier = Modifier.width(8.dp).fillMaxHeight())
-                }
+            val shape =
+                if (isMe(user)) RoundedCornerShape(borderSize0, borderSize, borderSize, borderSize)
+                else RoundedCornerShape(borderSize, borderSize0, borderSize, borderSize)
 
-                val shape = if (sender == ClickableBubbleSender.Left)
-                    RoundedCornerShape(borderSize0, borderSize, borderSize, borderSize)
-                else
-                    RoundedCornerShape(borderSize, borderSize0, borderSize, borderSize)
-
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = if (isMe(user)) Arrangement.End else Arrangement.Start
+            ) {
                 Surface(
                     shape = shape, color = backgroundBubbleColor
                 ) {
@@ -147,55 +130,19 @@ fun UserAndMessage(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                     )
                 }
-                if (withTriangle && sender == ClickableBubbleSender.Right) {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = backgroundBubbleColor,
-                                shape = TriangleEdgeShape(false, pxValue)
-                            )
-                            .width(8.dp)
-                            .fillMaxHeight()
-                    ) {}
-                } else {
-                    Spacer(modifier = Modifier.width(triangleSize))
-                }
             }
-        }
-    }
-}
 
-@Composable
-fun SendMessage(
-    withAvatar: Boolean,
-    message: Message,
-    withTriangle: Boolean
-) {
-
-}
-
-
-@Composable
-@Preview
-fun PreviewUserAndMessage() {
-    val messageGroup = getDefaultMessageGroup()
-    MomotalkTheme {
-        Column {
-            for (i in 0 until messageGroup.messages.size) {
-                var withAvatar = false
-                var withTriangle = false
-                if (i == 0) {
-                    withAvatar = true
-                    withTriangle = true
-                }
-                UserAndMessage(
-                    withAvatar = withAvatar,
-                    sender = ClickableBubbleSender.Left,
-                    user = messageGroup.user,
-                    message = messageGroup.messages[i],
-                    withTriangle = withTriangle
-                )
-                Spacer(modifier = Modifier.height(bubbleSpace))
+            if (withTriangle && isMe(user)) {
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color = backgroundBubbleColor, shape = TriangleEdgeShape(false, pxValue)
+                        )
+                        .width(triangleSize)
+                        .fillMaxHeight()
+                ) {}
+            } else {
+                Spacer(modifier = Modifier.width(if (isMe(user)) triangleSize else triangleSize + avatarWidth))
             }
         }
     }
@@ -216,16 +163,64 @@ class TriangleEdgeShape(private val left: Boolean, private val offsetY: Float) :
             }
         } else {
             Path().apply {
-                moveTo(x = 0f, y = size.height - offsetY - offset)
-                lineTo(x = 0f, y = size.height - offsetY)
-                lineTo(x = 0f + offset, y = size.height - offsetY - offset / 2)
+                moveTo(x = 0f, y = offsetY)
+                lineTo(x = 0f, y = offsetY + offset)
+                lineTo(x = 0f + offset, y = offsetY + offset / 2)
             }
         }
         return Outline.Generic(path = trianglePath)
     }
 }
 
-private val bubbleSpace = 4.dp
+@Composable
+@Preview()
+fun PreviewUserAndMessage() {
+    val messageGroup = getDefaultMessageGroup(getDefaultMe())
+    val messageGroup2 = getDefaultMessageGroup(getDefaultUser())
+    MomotalkTheme {
+        Surface {
+            Column {
+                Column(horizontalAlignment = if (isMe(messageGroup.user)) Alignment.End else Alignment.Start) {
+                    for (i in 0 until messageGroup.messages.size) {
+                        var withAvatar = false
+                        var withTriangle = false
+                        if (i == 0) {
+                            withAvatar = true
+                            withTriangle = true
+                        }
+                        UserAndMessage(
+                            withAvatar = withAvatar,
+                            user = messageGroup.user,
+                            message = messageGroup.messages[i],
+                            withTriangle = withTriangle
+                        )
+                        Spacer(modifier = Modifier.height(bubbleSpace))
+                    }
+                }
+                Column(horizontalAlignment = if (isMe(messageGroup2.user)) Alignment.End else Alignment.Start) {
+                    for (i in 0 until messageGroup2.messages.size) {
+                        var withAvatar = false
+                        var withTriangle = false
+                        if (i == 0) {
+                            withAvatar = true
+                            withTriangle = true
+                        }
+                        UserAndMessage(
+                            withAvatar = withAvatar,
+                            user = messageGroup2.user,
+                            message = messageGroup2.messages[i],
+                            withTriangle = withTriangle
+                        )
+                        Spacer(modifier = Modifier.height(bubbleSpace))
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val avatarWidth = 68.dp
+private val bubbleSpace = 2.dp
 private val triangleSize = 8.dp
 private val borderSize = 12.dp
 private val borderSize0 = 12.dp
